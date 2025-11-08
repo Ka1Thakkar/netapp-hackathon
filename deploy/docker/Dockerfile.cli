@@ -1,0 +1,83 @@
+# syntax=docker/dockerfile:1.6
+#
+# Data in Motion – CLI Dockerfile
+#
+# Containerizes the Python CLI to interact with the prototype services.
+# Usage (from repo root):
+#   docker build -f deploy/docker/Dockerfile.cli -t data-motion-cli:dev .
+#
+# Examples:
+#   # Show help
+#   docker run --rm data-motion-cli:dev --help
+#
+#   # Health check against compose services
+#   docker run --rm --network host data-motion-cli:dev health
+#
+#   # With compose default network (service DNS names)
+#   # Ensure PY_API_BASE / GO_API_BASE / WEB_BASE point to service names
+#   docker run --rm data-motion-cli:dev health
+#
+#   # Datasets
+#   docker run --rm data-motion-cli:dev datasets list
+#   docker run --rm data-motion-cli:dev datasets create --name demo --path-uri file:///shared_storage/demo
+#
+#   # Plan migration
+#   docker run --rm data-motion-cli:dev migrate plan --dataset-id 1 --target-location file:///shared_storage/migrated/demo --storage-class standard
+#
+# Notes:
+# - Defaults below assume docker-compose service names:
+#     python_api (port 8080), go_mover (port 8090), web (port 80)
+# - Override API bases via env at runtime:
+#     docker run -e PY_API_BASE=http://localhost:8080 -e GO_API_BASE=http://localhost:8090 data-motion-cli:dev health
+#
+
+FROM python:3.11-slim AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+# Minimal OS deps
+RUN apt-get update -y \
+ && apt-get install -y --no-install-recommends ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+# Non-root user
+RUN groupadd -g 10001 app && useradd -u 10000 -g app -m -s /bin/bash app
+
+WORKDIR /cli
+
+# Install lightweight runtime deps
+# - httpx preferred (async); CLI can fall back to requests if desired
+# - requests included for compatibility; rich/tabulate optional niceties
+RUN pip install --no-cache-dir \
+      httpx \
+      requests \
+      rich \
+      tabulate
+
+# Copy only the CLI script to keep the image small
+# Build context is the repo root
+COPY tools/cli/data_motion_cli.py /cli/data_motion_cli.py
+
+# Make executable
+RUN chown -R app:app /cli && chmod +x /cli/data_motion_cli.py
+
+# Default env targets to docker-compose service names
+ENV PY_API_BASE=http://python_api:8080 \
+    GO_API_BASE=http://go_mover:8090 \
+    WEB_BASE=http://web:80 \
+    CLI_TIMEOUT=10 \
+    CLI_FORMAT=table
+
+USER app
+
+# Entry: run the CLI; default subcommand is 'health' if none provided
+ENTRYPOINT ["python", "/cli/data_motion_cli.py"]
+CMD ["health"]
+
+# Labels (optional)
+LABEL org.opencontainers.image.title="Data Motion CLI" \
+      org.opencontainers.image.description="Containerized CLI for interacting with Data in Motion services." \
+      org.opencontainers.image.source="https://example.com/netapp-hackathon" \
+      org.opencontainers.image.licenses="Apache-2.0"

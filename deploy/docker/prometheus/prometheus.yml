@@ -1,0 +1,27 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+  external_labels:
+    env: local
+
+scrape_configs:
+  # Scrape the Python FastAPI service's Prometheus endpoint.
+  # With docker-compose, the 'python_api' hostname resolves to the service container.
+  - job_name: "python_api"
+    scheme: http
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["python_api:8080"]
+        labels:
+          service: python_api
+          app: data-in-motion
+  - job_name: "web_nginx"
+    scheme: http
+    metrics_path: /nginx_status
+    static_configs:
+      - targets: ["web:80"]
+        labels:
+          service: web
+          app: data-in-motion
+          exporter: nginx_stub_status

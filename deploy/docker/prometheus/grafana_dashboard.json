@@ -1,0 +1,257 @@
+{
+  "uid": "data-motion-demo",
+  "title": "Data in Motion – API & Nginx Metrics",
+  "tags": ["hackathon", "data-motion", "prototype"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "editable": true,
+  "graphTooltip": 0,
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Total Requests (All Paths)",
+      "id": 1,
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "refId": "A",
+            "expr": "sum(request_count_total)"
+        }
+      ],
+      "interval": "",
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "textMode": "value"
+      }
+    },
+    {
+      "type": "table",
+      "title": "Requests by Path",
+      "id": 2,
+      "gridPos": { "x": 6, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (path)(request_count_total)"
+        }
+      ],
+      "pluginVersion": "9.0.0",
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Value",
+            "desc": true
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": { "path": 0, "Value": 1 },
+            "renameByName": { "Value": "count", "path": "path" }
+          }
+        }
+      ]
+    },
+    {
+      "type": "piechart",
+      "title": "Job Status Transitions (Share)",
+      "id": 3,
+      "gridPos": { "x": 0, "y": 4, "w": 6, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (status)(job_status_transitions_total)"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "pieType": "donut",
+        "reduceOptions": { "calcs": ["lastNotNull"], "values": false, "fields": "" },
+        "displayLabels": ["percent", "name"],
+        "valueOptions": {}
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Access Event Bytes Total",
+      "id": 4,
+      "gridPos": { "x": 12, "y": 8, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "access_event_bytes_total"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "stat": {
+          "unit": "decbytes"
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Migrated Bytes (Approx)",
+      "id": 5,
+      "gridPos": { "x": 18, "y": 8, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "migration_job_bytes_total"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "stat": {
+          "unit": "decbytes"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Nginx Active Connections",
+      "id": 6,
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "nginx_active_connections"
+        }
+      ],
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "connections",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Nginx Connection States",
+      "id": 7,
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "refId": "A", "expr": "nginx_connections_reading" },
+        { "refId": "B", "expr": "nginx_connections_writing" },
+        { "refId": "C", "expr": "nginx_connections_waiting" }
+      ],
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "connections",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 3,
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "text",
+      "title": "Dashboard Notes",
+      "id": 8,
+      "gridPos": { "x": 0, "y": 19, "w": 24, "h": 5 },
+      "options": {
+        "content": "### Notes\n- `request_count_total`, `job_status_transitions_total`, `access_event_bytes_total`, and `migration_job_bytes_total` are exposed by the Python API `/metrics` endpoint.\n- Nginx metrics assume an exporter or stub_status translation that surfaces `nginx_active_connections` and connection state metrics; if they do not appear, integrate an nginx Prometheus exporter.\n- Refresh interval: 5s for rapid demo visibility.\n- Extend with histogram buckets (latency, job stage durations) and cost/tier optimization metrics in future iterations.",
+        "mode": "markdown"
+      }
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROMETHEUS",
+        "type": "datasource",
+        "label": "Prometheus",
+        "query": "prometheus",
+        "refresh": 1
+      }
+    ]
+  },
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m"]
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [],
+  "description": "Prototype dashboard showing API counters and (placeholder) nginx connection metrics for the Data in Motion hackathon. Extend with latency histograms and streaming lag."
+}

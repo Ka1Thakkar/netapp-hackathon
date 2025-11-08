@@ -1,0 +1,62 @@
+# syntax=docker/dockerfile:1.6
+
+# Minimal Python base
+FROM python:3.11-slim AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN groupadd -g 10001 app && \
+    useradd -u 10000 -g app -m -s /bin/bash app
+
+WORKDIR /app
+
+# Install runtime dependencies
+# Note: use bare 'uvicorn' to avoid building optional speedups (keeps image smaller)
+RUN pip install --no-cache-dir \
+      fastapi \
+      uvicorn \
+      aiokafka \
+      pydantic \
+      sqlalchemy \
+      numpy \
+      scikit-learn \
+      joblib
+
+# Copy service code (assumes build context is repo root)
+# If building from this Dockerfile path with a different context, adjust the COPY source accordingly.
+COPY services/python_api/ /app/
+
+# Create runtime directories for sqlite and storage; these can be mounted as volumes
+RUN mkdir -p /data/storage /secrets /models && chown -R app:app /data /secrets /models /app
+
+# Default environment (override at runtime)
+ENV KAFKA_BROKERS=localhost:9092 \
+    KAFKA_ACCESS_EVENTS_TOPIC=access_events \
+    KAFKA_MIGRATION_JOBS_TOPIC=migration_jobs \
+    KAFKA_MIGRATION_STATUS_TOPIC=migration_status \
+    KAFKA_GROUP=python_api_group \
+    SQLITE_PATH=/data/metadata.db \
+    STORAGE_DRIVER_LOCAL_ROOT=/data/storage \
+    MODEL_DIR=/models \
+    APP_NAME=data-in-motion-python-api \
+    APP_VERSION=0.1.0 \
+    HOST=0.0.0.0 \
+    PORT=8080 \
+    KAFKA_START_MAX_RETRIES=3
+
+USER app
+
+EXPOSE 8080
+
+# Optional container healthcheck
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD curl -fsS http://127.0.0.1:8080/health || exit 1
+
+# Start FastAPI app
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]

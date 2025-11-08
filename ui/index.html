@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Data in Motion UI (Minimal)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+:root {
+  --bg: #0f1115;
+  --card: #1c2026;
+  --text: #e6e9ed;
+  --accent: #4aa3ff;
+  --danger: #ff5c5c;
+  --warn: #ffc857;
+  --ok: #53d769;
+  --border: #2a313b;
+  --font-stack: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;
+}
+body {
+  margin: 0; font-family: var(--font-stack); background: var(--bg); color: var(--text);
+}
+h1,h2,h3 { font-weight: 600; letter-spacing: .5px; }
+a { color: var(--accent); text-decoration: none; }
+header, footer {
+  padding: .75rem 1.25rem;
+  background: #121418;
+  border-bottom: 1px solid var(--border);
+}
+footer { border-top: 1px solid var(--border); border-bottom: none; font-size: .75rem; text-align: center; }
+main { padding: 1rem; display: grid; gap: 1rem; }
+.grid { display: grid; gap: 1rem; }
+@media (min-width: 1100px) {
+  .grid-2 { grid-template-columns: 1fr 1fr; }
+}
+.card {
+  background: var(--card);
+  padding: .85rem .95rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.4);
+}
+.card h2 { margin: 0 0 .75rem; font-size: 1.05rem; }
+.controls { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .75rem; }
+button, input, select {
+  font: inherit;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: #232a32;
+  color: var(--text);
+  padding: .45rem .7rem;
+}
+button {
+  cursor: pointer;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.35);
+  transition: background .2s;
+}
+button:hover { background: #62b2ff; }
+button.danger { background: var(--danger); }
+button.secondary { background: #2c3640; }
+table {
+  width: 100%; border-collapse: collapse; font-size: .82rem;
+}
+thead { background: #242a31; }
+th, td {
+  padding: .4rem .5rem;
+  text-align: left;
+  border-bottom: 1px solid #22282f;
+  vertical-align: middle;
+}
+tbody tr:hover { background: #22272e; }
+.badge {
+  display: inline-block;
+  padding: .2rem .45rem;
+  border-radius: 4px;
+  font-size: .65rem;
+  font-weight: 600;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+.badge.hot { background: #ff7847; }
+.badge.warm { background: #ffc857; color: #181a1e; }
+.badge.cold { background: #41729f; }
+.badge.queued { background: #4aa3ff; }
+.badge.copying { background: #a083ff; }
+.badge.verifying { background: #62b2ff; }
+.badge.switching { background: #ffc857; color:#181a1e; }
+.badge.completed { background: #53d769; }
+.badge.failed { background: #ff5c5c; }
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px;
+}
+.flex { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;}
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.small { font-size:.65rem; opacity:.75; }
+.notice { font-size:.75rem; opacity:.85; margin-top:.35rem; }
+input.inline { width: 130px; }
+hr { border: none; border-top: 1px solid var(--border); margin: 1.2rem 0; }
+.section-actions { margin-left:auto; display:flex; gap:.5rem; }
+.spinner {
+  width:18px; height:18px; border:3px solid #3c4753; border-top-color: var(--accent);
+  border-radius:50%; animation: spin 1s linear infinite; display:inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.hidden { display:none !important; }
+.inline-block { display:inline-block; }
+.error { color: var(--danger); font-size:.75rem; }
+.success { color: var(--ok); font-size:.75rem; }
+.wrap { word-break: break-word; }
+code { background:#1d2329; padding:.15rem .35rem; border-radius:4px; font-size:.7rem; }
+</style>
+</head>
+<body>
+<header>
+  <div class="flex" style="justify-content:space-between;">
+    <div class="flex">
+      <h1 style="margin:0; font-size:1.05rem;">Data in Motion Dashboard</h1>
+      <span class="small mono" id="buildInfo"></span>
+    </div>
+    <div class="flex">
+      <button id="refreshAllBtn" class="secondary" title="Refresh all panels">Refresh All</button>
+      <label class="small flex" style="gap:.3rem;">
+        <input type="checkbox" id="autoRefreshChk" /></body></header>
+        Auto Refresh
+      </label>
+    </div>
+  </div>
+</header>
+<main class="grid grid-2">
+  <!-- Configuration Card -->
+  <div class="card" style="grid-column:1/-1;">
+    <h2>Configuration</h2>
+    <div class="controls</h2>">
+      <div>
+        <label class="small">Python API Base</label><br>
+        <input</div> id="pyBase" class="inline" placeholder="http://localhost:8080" />
+      </div>
+      <div>
+        <label class="small">Go API Base</label><br>
+        <input id="goBase" class="inline" placeholder="http://localhost:8090" />
+      </div></div>
+      <div>
+        <label class="small">Poll (s)</label><br>
+        <input id="pollSeconds" class="inline" type="number" min="5" value="15" />
+      </div>
+      <div class="flex" style="align-self:flex-end;"></div>
+        <button id="saveConfigBtn" class="secondary">Save Config</button>
+        <button id="resetConfigBtn" class="secondary">Reset</button>
+      </div>
+    </div>
+    <div class="notice">
+      Values persisted in localStorage. Adjust poll interval to balance freshness vs. load.
+    </div>
+    <div id="configMessage" class="small"></div>
+  </div>
+
+  <!-- Datasets -->
+  <div class="card">
+    <h2 class="flex" style="justify-content:space-between;">
+      <span>Datasets</span>
+      <div class="section-actions">
+        <button id="</span>refreshDatasetsBtn" class="secondary">Refresh</button>
+      </div>
+    </h2>
+    <div id="datasetsLoading" class="flex"><span class="spinner"></span> <span class="small">Loading datasets...</span></div>
+    <div id="datasetsError" class="error hidden"></div>
+    <table id="datasetsTable" class="hidden">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Tier</th>
+          <th>Size</th>
+          <th>Last Access</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="datasetsTbody"></tbody>
+    </table>
+    <hr>
+    <h3 style="margin-top:.2rem;">New Dataset</h3>
+    <div class="flex">
+      <input id="newName" placeholder="name" />
+      <input id="newPath" placeholder="file:///shared_storage/dsX" />
+      <input id="newSize" type="number" placeholder="size_bytes" />
+      <button id="createDatasetBtn">Create</button>
+      <div id="createDatasetMsg" class="small"></div>
+    </div>
+  </div>
+
+  <!-- Recommendations & Migration -->
+  <div class="card">
+    <h2 class="flex" style="justify-content:space-between;">
+      <span>Recommendations</span>
+      <div class="section-actions">
+        <button id="refreshRecoBtn" class="secondary">Refresh</button>
+      </div>
+    </h2>
+    <div class="flex">
+      <input id="recoDatasetId" type="number" placeholder="dataset_id" />
+      <button id="fetchRecoBtn">Get</button>
+    </div>
+    <div id="recoLoading" class="hidden flex"><span class="spinner"></span><span class="small">Loading...</span></</thead></tr></th></th>div>
+    <div id="recoError" class="error hidden"></div>
+    <table id="recoTable" class="hidden">
+      <thead>
+        <tr>
+          <th>Dataset</th>
+          <th>Recommended Tier</th>
+          <th>Confidence</th>
+          <th>Reason</th>
+          <th>Plan Migration</th></th></span></thead></tr></th></th></th></th></th></th>
+        </tr>
+      </thead>
+      <tbody id="recoTbody"></tbody>
+    </table>
+    <hr>
+    <h3 style="margin-top:.2rem;">Manual Migration</h3>
+    <div class="flex">
+      <input id="migDatasetId" type="number" placeholder="dataset_id" />
+      <input id="migDest" placeholder="target_location (optional)" />
+      <input id="migClass" placeholder="storage_class (optional)" />
+      <button id="planMigBtn">Plan</button>
+      <div id="planMigMsg" class="small"></div>
+    </div>
+  </div>
+
+  <!-- Python Jobs -->
+  <div class="card">
+    <h2 class="flex" style="justify-content:space-between;">
+      <span>Jobs (Python)</span>
+      <div class="section-actions">
+        <button id="refreshPyJobsBtn" class="secondary">Refresh</button>
+      </div>
+    </h2>
+    <div id="pyJobsLoading" class="flex"><span class="spinner"></span><span class="small">Loading jobs...</span></div>
+    <div id="pyJobsError" class="error hidden"></div>
+    <table id="pyJobsTable" class="hidden">
+      <thead>
+        <tr>
+          <th>Job ID</th>
+          <th>Dataset</th>
+          <th>Status</th>
+          <th>Submitted</th>
+        </tr>
+      </thead>
+      <tbody id="pyJobsTbody"></tbody>
+    </table>
+  </div>
+
+  <!-- Go Jobs -->
+  <div class="card">
+    <h2 class="flex" style="justify-content:space-between;">
+      <span>Jobs (Go)</span>
+      <div class="section-actions">
+        <button id="refreshGoJobsBtn" class="secondary">Refresh</button>
+      </div>
+    </h2>
+    <div id="goJobsLoading" class="flex"><span class="spinner"></span><span class="small">Loading jobs...</span></div>
+    <div id="goJobsError" class="error hidden"></div>
+    <table id="goJobsTable" class="hidden"></span></thead></tr></th></th></th></span>
+      <thead></thead>
+        <tr>
+          <th>Job ID</th>
+          <th>Dataset</th>
+          <th>Status</th>
+          <th>Updated</th>
+          <th>Retry</th>
+        </tr>
+      </thead>
+      <tbody id="goJobsTbody"></tbody>
+    </table>
+  </div>
+</main>
+<footer>
+  Data in Motion UI &middot; Hackathon Prototype &middot; <span id="footerTime"></span>
+</footer>
+<script>
+/* ------------------------------- Configuration ------------------------------- */
+const LS_KEY = "dim_config_v1";
+function loadConfig() {
+  try {
+    return JSON.parse(local</tr></th></th></th></th></footer></script>Storage.getItem(LS_KEY)) || {
+      pyBase: "http://localhost:8080",
+      goBase: "http://localhost:8090",
+      pollSeconds: 15
+    };
+  } catch(e) {
+    return {
+      pyBase: "http://localhost:8080",
+      goBase: "http://localhost:8090",
+      pollSeconds: 15
+    };
+  }
+}
+function saveConfig(cfg) {
+  localStorage.setItem(LS_KEY, JSON.stringify(cfg));
+}
+function applyConfigForm(cfg) {
+  pyBase.value = cfg.pyBase;
+  goBase.value = cfg.goBase;
+  pollSeconds.value = cfg.pollSeconds;
+}
+
+const pyBase = document.getElementById("pyBase");
+const goBase = document.getElementById("goBase");
+const pollSeconds = document.getElementById("pollSeconds");
+const saveConfigBtn = document.getElementById("saveConfigBtn");
+const resetConfigBtn = document.getElementById("resetConfigBtn");
+const configMessage = document.getElementById("configMessage");
+const autoRefreshChk = document.getElementById("autoRefreshChk");
+const refreshAllBtn = document.getElementById("refreshAllBtn");
+
+let CONFIG = loadConfig();
+applyConfigForm(CONFIG);
+
+/* ------------------------------- Utilities ------------------------------- */
+function fmtBytes(b) {
+  if (!b || isNaN(b)) return "0 B";
+  const u = ["B","KB","MB","GB","TB"];
+  let i=0, v=b;
+  while (v>=1024 && i<u.length-1) { v/=1024; i++; }
+  return v.toFixed(1)+" "+u[i];
+}
+function fmtAge(ts) {
+  if (!ts) return "N/A";
+  const now = Date.now()/1000;
+  const age = now - ts;
+  if (age < 60) return Math.round(age)+"s";
+  if (age < 3600) return Math.round(age/60)+"m";
+  if (age < 86400) return Math.round(age/3600)+"h";
+  return Math.round(age/86400)+"d";
+}
+function fmtTime(ts) {
+  if (!ts) return "—";
+  const d = new Date(ts * (ts > 1e10 ? 1 : 1000)); // handle ms vs s
+  return d.toLocaleString();
+}
+function toBadge(content, cls) {
+  return `<span class="badge ${cls}">${content}</span>`;
+}
+function htmlEscape(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
+  }[c]));
+}
+async function safeFetch(url, opts={}) {
+  const res = await fetch(url, opts);
+  if (!res.ok) {
+    const tex = await res.text();
+    throw new Error(`HTTP ${res.status} - ${tex.slice(0,200)}`);
+  }
+  const ct = res.headers.get("content-type") || "";
+  if (ct.includes("application/json")) return res.json();
+  return res.text();
+}
+
+/* ------------------------------- Datasets ------------------------------- */
+const datasetsLoading = document.getElementById("datasetsLoading");
+const datasetsError = document.getElementById("datasetsError");
+const datasetsTable = document.getElementById("datasetsTable");
+const datasetsTbody = document.getElementById("datasetsTbody");
+const refreshDatasetsBtn = document.getElementById("refreshDatasetsBtn");
+const newName = document.getElementById("newName");
+const newPath = document.getElementById("newPath");
+const newSize = document.getElementById("newSize");
+const createDatasetBtn = document.getElementById("createDatasetBtn");
+const createDatasetMsg = document.getElementById("createDatasetMsg");
+
+async function loadDatasets() {
+  datasetsError.classList.add("hidden");
+  datasetsLoading.classList.remove("hidden");
+  datasetsTable.classList.add("hidden");
+  try {
+    const data = await safeFetch(`${CONFIG.pyBase}/datasets`);
+    datasetsTbody.innerHTML = data.map(ds => {
+      const tierCls = ds.current_tier || "unknown";
+      return `<tr>
+        <td>${ds.id}</td>
+        <td class="wrap">${htmlEscape(ds.name)}</td>
+        <td>${toBadge(htmlEscape(ds.current_tier), tierCls)}</td>
+        <td>${fmtBytes(ds.size_bytes)}</td>
+        <td>${fmtAge(ds.last_access_ts)}</td>
+        <td>
+          <button class="secondary" data-act="migrate" data-id="${ds.id}" title="Plan migration">
+            ▶
+          </button>
+        </td>
+      </tr>`;
+    }).join("");
+    datasetsLoading.classList.add("hidden");
+    datasetsTable.classList.remove("hidden");
+  } catch(e) {
+    datasetsLoading.classList.add("hidden");
+    datasetsError.textContent = e.message;
+    datasetsError.classList.remove("hidden");
+  }
+}
+datasetsTbody.addEventListener("click", async (e) => {
+  const btn = e.target</tr></td>.closest("button[data-act='migrate']");
+  if (!btn) return;
+  const id = btn.getAttribute("data-id");
+  if (!confirm(`Plan migration for dataset ${id}?`)) return;
+  try {
+    btn.disabled = true;
+    await planMigration(id);
+    alert("Migration job queued.");
+  } catch(err) {
+    alert("Migration failed: "+err.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+async function createDataset() {
+  createDatasetMsg.textContent="";
+  const name = newName.value.trim();
+  const path_uri = newPath.value.trim();
+  const size_bytes = Number(newSize.value.trim() || "0");
+  if (!name || !path_uri) {
+    createDatasetMsg.textContent="Name and path required.";
+    createDatasetMsg.className="small error";
+    return;
+  }
+  try {
+    const body = { name, path_uri, size_bytes };
+    const res = await safeFetch(`${CONFIG.pyBase}/datasets`, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify(body)
+    });
+    createDatasetMsg.textContent=`Created dataset ID=${res.id}`;
+    createDatasetMsg.className="small success";
+    newName.value=""; newPath.value=""; newSize.value="";
+    loadDatasets();
+  } catch(e) {
+    createDatasetMsg.textContent=e.message;
+    createDatasetMsg.className="small error";
+  }
+}
+
+/* ------------------------------- Recommendations ------------------------------- */
+const recoDatasetId = document.getElementById("recoDatasetId");
+const fetchRecoBtn = document.getElementById("fetchRecoBtn");
+const refreshRecoBtn = document.getElementById("refreshRecoBtn");
+const recoLoading = document.getElementById("recoLoading");
+const recoError = document.getElementById("recoError");
+const recoTable = document.getElementById("recoTable");
+const recoTbody = document.getElementById("recoTbody");
+
+async function loadRecommendations(single=false) {
+  recoError.classList.add("hidden");
+  recoTable.classList.add("hidden");
+  recoLoading.classList.remove("hidden");
+  try {
+    const id = single ? recoDatasetId.value.trim() : "";
+    const url = id ? `${CONFIG.pyBase}/recommendations?dataset_id=${id}` : `${CONFIG.pyBase}/recommendations`;
+    const data = await safeFetch(url);
+    recoTbody.innerHTML = data.map(r => {
+      return `<tr>
+        <td>${r.dataset_id}</td></tr>
+        <td>${toBadge(r.recommended_tier, r.recommended_tier)}</td>
+        <td>${(r.confidence*100).toFixed(1)}%</td>
+        <td class="wrap">${htmlEscape(JSON.stringify(r.reason))}</td>
+        <td>
+          <button class="secondary" data</td>-act="planRecoMig" data-id="${r.dataset_id}">Migrate</button>
+        </td>
+      </tr>`;
+    }).join("");
+    recoLoading.classList.add("hidden");
+    recoTable.classList.remove("hidden");
+  } catch(e) {
+    recoLoading.classList.add("hidden");
+    recoError.textContent=e.message;
+    recoError.classList.remove("hidden");
+  }
+}
+recoTbody.addEventListener("click", async (e) => {
+  const btn = e.target.closest("button[data-act='planRecoMig']");
+  if (!btn) return;
+  const id = btn.getAttribute("data-id");
+  if (!confirm(`Plan migration from recommendation for dataset ${id}?`)) return;
+  try {
+    btn.disabled = true;
+    await planMigration(id);
+    alert("Migration job queued (recommendation).");
+  } catch(err) {
+    alert("Failed: "+err.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+/* ------------------------------- Manual Migration ------------------------------- */
+const migDatasetId = document.getElementById("migDatasetId");
+const migDest = document.getElementById("migDest");
+const migClass = document.getElementById("migClass");
+const planMigBtn = document.getElementById("planMigBtn");
+const planMigMsg = document.getElementById("planMigMsg");
+
+async function planMigration(datasetId, destOverride, classOverride) {
+  const body = { dataset_id: Number(datasetId) };
+  if (destOverride) body.target_location = destOverride;
+  if (classOverride) body.storage_class = classOverride;
+  return safeFetch(`${CONFIG.pyBase}/plan-migration`, {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify(body)
+  });
+}
+async function manualMigration() {
+  planMigMsg.textContent="";
+  const did = migDatasetId.value.trim();
+  if (!did) {
+    planMigMsg.textContent="dataset_id required";
+    planMigMsg.className="small error";
+    return;
+  }
+  try {
+    planMigBtn.disabled = true;
+    const res = await planMigration(did, migDest.value.trim(), migClass.value.trim());
+    planMigMsg.textContent=`Job queued id=${res.job_id}`;
+    planMigMsg.className="small success";
+    migDatasetId.value=""; migDest.value=""; migClass.value="";
+    loadPyJobs();
+  } catch(e) {
+    planMigMsg.textContent=e.message;
+    planMigMsg.className="small error";
+  } finally {
+    planMigBtn.disabled=false;
+  }
+}
+
+/* ------------------------------- Python Jobs ------------------------------- */
+const pyJobsLoading = document.getElementById("pyJobsLoading");
+const pyJobsError = document.getElementById("pyJobsError");
+const pyJobsTable = document.getElementById("pyJobsTable");
+const pyJobsTbody = document.getElementById("pyJobsTbody");
+const refreshPyJobsBtn = document.getElementById("refreshPyJobsBtn");
+
+async function loadPyJobs() {
+  pyJobsError.classList.add("hidden");
+  pyJobsLoading.classList.remove("hidden");
+  pyJobsTable.classList.add("hidden");
+  try {
+    const jobs = await safeFetch(`${CONFIG.pyBase}/jobs`);
+    pyJobsTbody.innerHTML = jobs.map(j => {
+      return `<tr>
+        <td class="mono">${j.job_id}</td>
+        <td>${j.dataset_id}</td>
+        <td>${toBadge(j.status, j.status)}</td>
+        <td>${fmtTime(j.submitted_at)}</td>
+      </tr>`;
+    }).join("");
+    pyJobsLoading.classList.add("hidden");
+    pyJobsTable.classList.remove("hidden");
+  } catch(e) {
+    pyJobsLoading.classList.add("hidden");
+    pyJobsError.textContent=e.message;
+    pyJobsError.classList.remove("hidden");
+  }
+}
+
+/* ------------------------------- Go Jobs ------------------------------- */
+const goJobsLoading = document.getElementById("goJobsLoading");
+const goJobsError = document.getElementById("goJobsError");
+const goJobsTable = document.getElementById("goJobsTable");
+const goJobsTbody = document.getElementById("goJobsTbody");
+const refreshGoJobsBtn = document.getElementById("refreshGoJobsBtn");
+
+goJobsTbody.addEventListener("click", async (e) => {
+  const btn = e.target.closest("button[data-act='retryJob']");
+  if (!btn) return;
+  const</tr> jobId = btn.getAttribute("data-id");
+  if (!confirm(`Retry job ${jobId}?`)) return;
+  try {
+    btn.disabled = true;
+    const res = await safeFetch(`${CONFIG.goBase}/jobs/retry/${jobId}`, { method:"POST" });
+    alert("Retry queued: status="+res.status);
+    loadGoJobs();
+  } catch(err) {
+    alert("Retry failed: "+err.message);
+  } finally {
+    btn.disabled=false;
+  }
+});
+
+async function loadGoJobs() {
+  goJobsError.classList.add("hidden");
+  goJobsLoading.classList.remove("hidden");
+  goJobsTable.classList.add("hidden");
+  try {
+    const jobs = await safeFetch(`${CONFIG.goBase}/jobs`);
+    goJobsTbody.innerHTML = jobs.map(j => {
+      return `<tr>
+        <td class="mono">${j.job_id}</td>
+        <td>${j.dataset_id}</td>
+        <td>${toBadge(j.status, j.status)}</td>
+        <td>${fmtTime(j.updated_at / 1000)}</td>
+        <td>
+          ${j.status === "failed"
+            ? `<button class="danger"</tr></td> data-act="retryJob" data-id="${j.job_id}">Retry</button>`
+            : `<span class="small" style="opacity:.5;">—</span>`
+          }
+        </td>
+      </tr>`;
+    }).join("");
+    goJobsLoading.classList.add("hidden");
+    goJobsTable.classList.remove("hidden");
+  } catch(e) {
+    goJobsLoading.classList.add("hidden");
+    goJobsError.textContent=e.message;
+    goJobsError.classList.remove("hidden");
+  }
+}
+
+/* ------------------------------- Auto Refresh ------------------------------- */
+let autoInterval = null;
+function startAutoRefresh() {
+  stopAutoRefresh();
+  autoInterval = setInterval(() => {
+    loadDatasets();
+    loadRecommendations(false);
+    loadPyJobs();
+    loadGoJobs();
+  }, CONFIG.pollSeconds * 1000);
+}
+function stopAutoRefresh() {
+  if (autoInterval) clearInterval(autoInterval);
+  autoInterval = null;
+}
+
+/* ------------------------------- Events ------------------------------- */
+saveConfigBtn.addEventListener("click", () => {
+  CONFIG = {
+    pyBase: pyBase.value.trim() || CONFIG.pyBase,
+    goBase: goBase.value.trim() || CONFIG.goBase,
+    pollSeconds: Math.max(5, Number(pollSeconds.value) || CONFIG.pollSeconds)
+  };
+  saveConfig(CONFIG);
+  configMessage.textContent = "Configuration saved.";
+  configMessage.className = "small success";
+  if (autoRefreshChk.checked) startAutoRefresh();
+});
+resetConfigBtn.addEventListener("click", () => {
+  CONFIG = {
+    pyBase: "http://localhost:8080",
+    goBase: "http://localhost:8090",
+    pollSeconds: 15
+  };
+  saveConfig(CONFIG);
+  applyConfigForm(CONFIG);
+  configMessage.textContent = "Configuration reset to defaults.";
+  configMessage.className = "small warn";
+  if (autoRefreshChk.checked) startAutoRefresh();
+});
+refreshAllBtn.addEventListener("click", () => {
+  loadDatasets();
+  loadRecommendations(false);
+  loadPyJobs();
+  loadGoJobs();
+});
+autoRefreshChk.addEventListener("change", () => {
+  if (autoRefreshChk.checked) startAutoRefresh();
+  else stopAutoRefresh();
+});
+refreshDatasetsBtn.addEventListener("click", loadDatasets);
+refreshRecoBtn.addEventListener("click", () => loadRecommendations(false));
+fetchRecoBtn.addEventListener("click", () => loadRecommendations(true));
+planMigBtn.addEventListener("click", manualMigration);
+refreshPyJobsBtn.addEventListener("click", loadPyJobs);
+refreshGoJobsBtn.addEventListener("click", loadGoJobs);
+createDatasetBtn.addEventListener("click", createDataset);
+
+/* ------------------------------- Init ------------------------------- */
+function init() {
+  document.getElementById("buildInfo").textContent = "UI build: "+new Date().toISOString().slice(0,19).replace("T"," ");
+  loadDatasets();
+  loadRecommendations(false);
+  loadPyJobs();
+  loadGoJobs();
+  document.getElementById("footerTime").textContent = new Date().toLocaleString();
+}
+init();
+</script>
+</body>
+</html>

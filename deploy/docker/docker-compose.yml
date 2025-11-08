@@ -1,0 +1,239 @@
+# ------------------------------------------------------------------------------
+# Data in Motion Local Simulation Stack
+#
+# Services:
+# - redpanda: Kafka-compatible broker (single-node)
+# - python_api: FastAPI policy + analytics + ML scaffolding
+# - go_mover: Migration orchestrator simulation
+# - web: React SPA + Nginx reverse proxy to python_api/go_mover
+# - cli: Containerized utility CLI (data_motion_cli)
+# - minio (optional): S3-compatible object storage for multi-cloud simulation
+# - console (optional): Redpanda Console (Kafka UI)
+#
+# Volumes:
+# - python_data: persists SQLite metadata db
+# - shared_storage: simulates on-prem/local filesystem storage
+# - minio_data: persists MinIO object data
+#
+# Usage:
+#   docker compose up --build
+#   docker compose ps
+#   curl http://localhost:8080/health
+#   curl http://localhost:8090/health
+#   curl http://localhost:8082/health   # web (static health file)
+#   docker compose run cli health      # containerized CLI
+#
+# To disable optional services: comment them out or use profiles (`docker compose --profile core up`)
+# ------------------------------------------------------------------------------
+
+services:
+  redpanda:
+    image: redpandadata/redpanda:latest
+    container_name: redpanda
+    command:
+      - redpanda
+      - start
+      - --smp 1
+      - --overprovisioned
+      - --memory 512M
+      - --reserve-memory 0M
+      - --node-id 0
+      - --check=false
+      - --kafka-addr 0.0.0.0:9092
+      - --advertise-kafka-addr redpanda:9092
+    ports:
+      - "9092:9092" # Kafka API
+      - "9644:9644" # Admin API
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9644/v1/status/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  python_api:
+    build:
+      context: ../../
+      dockerfile: deploy/docker/Dockerfile.python
+    container_name: python_api
+    environment:
+      # Kafka
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_ACCESS_EVENTS_TOPIC: access_events
+      KAFKA_MIGRATION_JOBS_TOPIC: migration_jobs
+      KAFKA_MIGRATION_STATUS_TOPIC: migration_status
+      KAFKA_GROUP: python_api_group
+      # App
+      APP_NAME: data-in-motion-python-api
+      APP_VERSION: 0.1.0
+      HOST: 0.0.0.0
+      PORT: 8080
+      LOG_LEVEL: INFO
+      # Data layer
+      SQLITE_PATH: /data/metadata.db
+      STORAGE_DRIVER_LOCAL_ROOT: /shared_storage
+      # (Optional) GCP integration for later: GOOGLE_APPLICATION_CREDENTIALS=/secrets/gcp-sa.json
+    volumes:
+      - python_data:/data
+      - shared_storage:/shared_storage
+      # - ./secrets:/secrets:ro   # uncomment when adding cloud creds
+    ports:
+      - "8080:8080"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  go_mover:
+    build:
+      context: ../../
+      dockerfile: deploy/docker/Dockerfile.go
+    container_name: go_mover
+    environment:
+      APP_NAME: data-in-motion-go-mover
+      APP_VERSION: 0.1.0
+      HOST: 0.0.0.0
+      PORT: 8090
+      LOG_LEVEL: INFO
+      KAFKA_BROKERS: "redpanda:9092"
+      KAFKA_MIGRATION_JOBS_TOPIC: migration_jobs
+      KAFKA_MIGRATION_STATUS_TOPIC: migration_status
+      KAFKA_GROUP: go_mover_group
+      DISABLE_KAFKA: "false"
+      SHUTDOWN_GRACE_SECONDS: 10
+      JOB_CONSUMER_POLL_INTERVAL_MS: 500
+      JOB_SIMULATION_CYCLES: 4
+    volumes:
+      - shared_storage:/shared_storage
+    ports:
+      - "8090:8090"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8090/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ../../
+      dockerfile: deploy/docker/Dockerfile.web
+    container_name: web
+    environment:
+      API_PY_BASE: /py
+      API_GO_BASE: /go
+    ports:
+      - "8082:80"
+    depends_on:
+      python_api:
+        condition: service_healthy
+      go_mover:
+        condition: service_healthy
+    restart: unless-stopped
+
+  cli:
+    build:
+      context: ../../
+      dockerfile: deploy/docker/Dockerfile.cli
+    container_name: data_motion_cli
+    environment:
+      PY_API_BASE: http://python_api:8080
+      GO_API_BASE: http://go_mover:8090
+      WEB_BASE: http://web:80
+      CLI_TIMEOUT: 10
+      CLI_FORMAT: table
+
+    depends_on:
+      python_api:
+        condition: service_healthy
+      go_mover:
+        condition: service_healthy
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # MinIO Console
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    profiles: ["extended"]
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      python_api:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles: ["extended"]
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3000:3000"
+    depends_on:
+      prometheus:
+        condition: service_started
+    restart: unless-stopped
+    profiles: ["extended"]
+
+  console:
+    image: redpandadata/console:latest
+    container_name: redpanda_console
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_SCHEMAREGISTRY_ENABLED: "false"
+      KAFKA_CONNECT_ENABLED: "false"
+      SERVER_LISTENPORT: 8081
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+    profiles: ["extended"]
+
+# ------------------------------------------------------------------------------
+# Volumes
+# ------------------------------------------------------------------------------
+volumes:
+  python_data:
+  shared_storage:
+  minio_data:
+# ------------------------------------------------------------------------------
+# Optional named networks (default network is fine; uncomment for customization)
+# ------------------------------------------------------------------------------
+# networks:
+#   datanet:
+#     driver: bridge
+# ------------------------------------------------------------------------------
