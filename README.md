@@ -13,7 +13,7 @@ This README covers:
 - Roadmap for enhancements
 
 References:
-- Problem statement lives in: netapp-hackathon/Problem Statement/prompts.md
+- Problem statement lives in: netapp-hackathon/Problem Statement/
 
 --------------------------------------------------------------------------------
 
